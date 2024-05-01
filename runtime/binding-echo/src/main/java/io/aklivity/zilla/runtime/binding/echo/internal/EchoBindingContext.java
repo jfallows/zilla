@@ -32,6 +32,8 @@ final class EchoBindingContext implements BindingContext
     private final EchoRouter router;
     private final Map<KindConfig, BindingHandler> factories;
 
+    private boolean initialized;
+
     EchoBindingContext(
         EchoConfiguration config,
         EngineContext context)
@@ -44,6 +46,15 @@ final class EchoBindingContext implements BindingContext
     public BindingHandler attach(
         BindingConfig binding)
     {
+        if (!initialized)
+        {
+            factories.values().stream()
+                .filter(EchoServerFactory.class::isInstance)
+                .map(EchoServerFactory.class::cast)
+                .forEach(EchoServerFactory::init);
+            initialized = true;
+        }
+
         router.attach(binding);
         return factories.get(binding.kind);
     }

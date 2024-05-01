@@ -15,24 +15,27 @@
  */
 package io.aklivity.zilla.runtime.binding.echo.internal.stream;
 
-import static java.util.Objects.requireNonNull;
-
+import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
 import java.util.function.LongUnaryOperator;
 
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
+import org.agrona.concurrent.UnsafeBuffer;
 
 import io.aklivity.zilla.runtime.binding.echo.internal.EchoConfiguration;
 import io.aklivity.zilla.runtime.binding.echo.internal.EchoRouter;
 import io.aklivity.zilla.runtime.binding.echo.internal.types.OctetsFW;
 import io.aklivity.zilla.runtime.binding.echo.internal.types.stream.AbortFW;
 import io.aklivity.zilla.runtime.binding.echo.internal.types.stream.BeginFW;
+import io.aklivity.zilla.runtime.binding.echo.internal.types.stream.BeginFields;
 import io.aklivity.zilla.runtime.binding.echo.internal.types.stream.ChallengeFW;
 import io.aklivity.zilla.runtime.binding.echo.internal.types.stream.DataFW;
 import io.aklivity.zilla.runtime.binding.echo.internal.types.stream.EndFW;
 import io.aklivity.zilla.runtime.binding.echo.internal.types.stream.FlushFW;
 import io.aklivity.zilla.runtime.binding.echo.internal.types.stream.ResetFW;
 import io.aklivity.zilla.runtime.binding.echo.internal.types.stream.WindowFW;
+import io.aklivity.zilla.runtime.binding.echo.internal.types.stream.WindowFields;
 import io.aklivity.zilla.runtime.engine.EngineContext;
 import io.aklivity.zilla.runtime.engine.binding.BindingHandler;
 import io.aklivity.zilla.runtime.engine.binding.function.MessageConsumer;
@@ -60,19 +63,28 @@ public final class EchoServerFactory implements BindingHandler
     private final WindowFW.Builder windowRW = new WindowFW.Builder();
     private final ChallengeFW.Builder challengeRW = new ChallengeFW.Builder();
 
-    private final MutableDirectBuffer writeBuffer;
     private final LongUnaryOperator supplyReplyId;
 
     private final EchoRouter router;
+    private final int writeCapacity;
+
+    private MutableDirectBuffer writeBuffer;
+    private MemorySegment writeSegment;
 
     public EchoServerFactory(
         EchoConfiguration config,
         EngineContext context,
         EchoRouter router)
     {
-        this.writeBuffer = requireNonNull(context.writeBuffer());
         this.supplyReplyId = context::supplyReplyId;
         this.router = router;
+        this.writeCapacity = context.writeBuffer().capacity();
+    }
+
+    public void init()
+    {
+        this.writeSegment = Arena.ofConfined().allocate(writeCapacity);
+        this.writeBuffer = new UnsafeBuffer(writeSegment.address(), (int) writeSegment.byteSize());
     }
 
     @Override
@@ -300,6 +312,8 @@ public final class EchoServerFactory implements BindingHandler
         }
     }
 
+    private static final boolean USE_MEMORY_SEGMENT = Boolean.getBoolean("zilla.binding.echo.use.memory.segment");
+
     private void doBegin(
         final MessageConsumer receiver,
         final long originId,
@@ -313,20 +327,39 @@ public final class EchoServerFactory implements BindingHandler
         final long affinity,
         final OctetsFW extension)
     {
-        final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                .originId(originId)
-                .routedId(routedId)
-                .streamId(streamId)
-                .sequence(sequence)
-                .acknowledge(acknowledge)
-                .maximum(maximum)
-                .traceId(traceId)
-                .authorization(authorization)
-                .affinity(affinity)
-                .extension(extension)
-                .build();
+        if (USE_MEMORY_SEGMENT)
+        {
+            final MemorySegment segment = writeSegment;
+            BeginFields.ORIGIN_ID.set(segment, 0, originId);
+            BeginFields.ROUTED_ID.set(segment, 0, routedId);
+            BeginFields.STREAM_ID.set(segment, 0, streamId);
+            BeginFields.SEQUENCE.set(segment, 0, sequence);
+            BeginFields.ACKNOWLEDGE.set(segment, 0, acknowledge);
+            //BeginFields.TIMESTAMP.set(segment, 0, timestamp);
+            BeginFields.MAXIMUM.set(segment, 0, maximum);
+            BeginFields.TRACE_ID.set(segment, 0, traceId);
+            BeginFields.AUTHORIZATION.set(segment, 0, authorization);
+            BeginFields.AFFINITY.set(segment, 0, affinity);
 
-        receiver.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
+            receiver.accept(BeginFW.TYPE_ID, writeBuffer, 0, BeginFields.SIZEOF);
+        }
+        else
+        {
+            final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                    .originId(originId)
+                    .routedId(routedId)
+                    .streamId(streamId)
+                    .sequence(sequence)
+                    .acknowledge(acknowledge)
+                    .maximum(maximum)
+                    .traceId(traceId)
+                    .authorization(authorization)
+                    .affinity(affinity)
+                    .extension(extension)
+                    .build();
+
+            receiver.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
+        }
     }
 
     private void doData(
@@ -488,19 +521,41 @@ public final class EchoServerFactory implements BindingHandler
         final long budgetId,
         final int padding)
     {
-        final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                .originId(originId)
-                .routedId(routedId)
-                .streamId(streamId)
-                .sequence(sequence)
-                .acknowledge(acknowledge)
-                .maximum(maximum)
-                .traceId(traceId)
-                .budgetId(budgetId)
-                .padding(padding)
-                .build();
+        if (USE_MEMORY_SEGMENT)
+        {
+            final MemorySegment segment = writeSegment;
+            WindowFields.ORIGIN_ID.set(segment, 0, originId);
+            WindowFields.ROUTED_ID.set(segment, 0, routedId);
+            WindowFields.STREAM_ID.set(segment, 0, streamId);
+            WindowFields.SEQUENCE.set(segment, 0, sequence);
+            WindowFields.ACKNOWLEDGE.set(segment, 0, acknowledge);
+            WindowFields.MAXIMUM.set(segment, 0, maximum);
+            WindowFields.TIMESTAMP.set(segment, 0, 0L);
+            WindowFields.TRACE_ID.set(segment, 0, traceId);
+            WindowFields.AUTHORIZATION.set(segment, 0, 0L);
+            WindowFields.BUDGET_ID.set(segment, 0, budgetId);
+            WindowFields.MINIMUM.set(segment, 0, 0);
+            WindowFields.PADDING.set(segment, 0, padding);
+            WindowFields.CAPABILITIES.set(segment, 0, (byte) 0);
 
-        sender.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
+            sender.accept(WindowFW.TYPE_ID, writeBuffer, 0, WindowFields.SIZEOF);
+        }
+        else
+        {
+            final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                    .originId(originId)
+                    .routedId(routedId)
+                    .streamId(streamId)
+                    .sequence(sequence)
+                    .acknowledge(acknowledge)
+                    .maximum(maximum)
+                    .traceId(traceId)
+                    .budgetId(budgetId)
+                    .padding(padding)
+                    .build();
+
+            sender.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
+        }
     }
 
     private void doChallenge(
