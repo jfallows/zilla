@@ -15,6 +15,7 @@
  */
 package io.aklivity.zilla.runtime.binding.tcp.internal.stream;
 
+import static io.aklivity.zilla.runtime.engine.EngineConfiguration.ENGINE_WORKER_CAPACITY;
 import static io.aklivity.zilla.runtime.engine.config.KindConfig.SERVER;
 import static java.nio.channels.SelectionKey.OP_ACCEPT;
 
@@ -23,7 +24,6 @@ import java.nio.channels.SelectableChannel;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.function.Function;
-import java.util.function.LongFunction;
 import java.util.function.ToIntFunction;
 
 import org.agrona.CloseHelper;
@@ -40,22 +40,20 @@ public final class TcpServerRouter
     private final Long2ObjectHashMap<TcpBindingConfig> bindings;
     private final ToIntFunction<PollerKey> acceptHandler;
     private final Function<SelectableChannel, PollerKey> supplyPollerKey;
-    private final LongFunction<TcpServerBindingConfig> lookupServer;
+    private final Long2ObjectHashMap<TcpServerBindingConfig> servers;
 
-    private int remainingConnections;
-    private boolean unbound;
+    private int available;
 
     public TcpServerRouter(
         TcpConfiguration config,
         EngineContext context,
-        ToIntFunction<PollerKey> acceptHandler,
-        LongFunction<TcpServerBindingConfig> lookupServer)
+        ToIntFunction<PollerKey> acceptHandler)
     {
-        this.remainingConnections = config.maxConnections();
+        this.available = ENGINE_WORKER_CAPACITY.getAsInt(config);
         this.bindings = new Long2ObjectHashMap<>();
         this.supplyPollerKey = context::supplyPollerKey;
+        this.servers = new Long2ObjectHashMap<>();
         this.acceptHandler = acceptHandler;
-        this.lookupServer = lookupServer;
     }
 
     public void attach(
@@ -91,22 +89,21 @@ public final class TcpServerRouter
     {
         SocketChannel channel = null;
 
-        if (remainingConnections > 0)
+        if (available > 0)
         {
             channel = server.accept();
 
             if (channel != null)
             {
-                remainingConnections--;
+                available--;
             }
         }
 
-        if (!unbound && remainingConnections <= 0)
+        if (channel != null && available == 0)
         {
             bindings.values().stream()
                 .filter(b -> b.kind == SERVER)
                 .forEach(this::unregister);
-            unbound = true;
         }
 
         return channel;
@@ -116,22 +113,22 @@ public final class TcpServerRouter
         SocketChannel channel)
     {
         CloseHelper.quietClose(channel);
-        remainingConnections++;
 
-        if (unbound && remainingConnections > 0)
+        if (available == 0)
         {
             bindings.values().stream()
                 .filter(b -> b.kind == SERVER)
                 .forEach(this::register);
-            unbound = false;
         }
+
+        available++;
     }
 
     private void register(
         TcpBindingConfig binding)
     {
-        TcpServerBindingConfig server = lookupServer.apply(binding.id);
-        ServerSocketChannel[] channels = server.bind(binding.options);
+        TcpServerBindingConfig server = servers.computeIfAbsent(binding.id, TcpServerBindingConfig::new);
+        SelectableChannel[] channels = server.bind(binding.options);
 
         PollerKey[] acceptKeys = new PollerKey[channels.length];
         for (int i = 0; i < channels.length; i++)
@@ -158,7 +155,7 @@ public final class TcpServerRouter
             }
         }
 
-        TcpServerBindingConfig server = lookupServer.apply(binding.id);
+        TcpServerBindingConfig server = servers.remove(binding.id);
         server.unbind();
     }
 }

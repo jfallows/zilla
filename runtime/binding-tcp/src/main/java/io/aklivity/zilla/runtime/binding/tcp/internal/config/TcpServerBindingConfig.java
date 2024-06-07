@@ -22,10 +22,8 @@ import static org.agrona.CloseHelper.quietClose;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.nio.channels.SelectableChannel;
 import java.nio.channels.ServerSocketChannel;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import org.agrona.LangUtil;
 
@@ -35,54 +33,39 @@ public final class TcpServerBindingConfig
 {
     public final long id;
 
-    private final Lock lock = new ReentrantLock();
-    private final AtomicInteger binds;
-    private volatile ServerSocketChannel[] channels;
+    private SelectableChannel[] channels;
 
     public TcpServerBindingConfig(
         long bindingId)
     {
         this.id = bindingId;
-        this.binds = new AtomicInteger();
     }
 
-    public ServerSocketChannel[] bind(
+    public SelectableChannel[] bind(
         TcpOptionsConfig options)
     {
         try
         {
-            lock.lock();
+            assert channels == null;
 
-            if (binds.getAndIncrement() == 0L)
+            int size = options.ports != null ? options.ports.length : 0;
+            channels = new SelectableChannel[size];
+
+            for (int i = 0; i < size; i++)
             {
-                assert channels == null;
+                InetAddress address = InetAddress.getByName(options.host);
+                InetSocketAddress local = new InetSocketAddress(address, options.ports[i]);
 
-                int size = options.ports != null ? options.ports.length : 0;
-                channels = new ServerSocketChannel[size];
-
-                for (int i = 0; i < size; i++)
-                {
-                    ServerSocketChannel channel = ServerSocketChannel.open();
-
-                    InetAddress address = InetAddress.getByName(options.host);
-                    InetSocketAddress local = new InetSocketAddress(address, options.ports[i]);
-
-                    channel.setOption(SO_REUSEADDR, true);
-                    channel.setOption(SO_REUSEPORT, true);
-                    channel.bind(local, options.backlog);
-                    channel.configureBlocking(false);
-
-                    channels[i] = channel;
-                }
+                channels[i] = ServerSocketChannel.open()
+                    .setOption(SO_REUSEADDR, true)
+                    .setOption(SO_REUSEPORT, true)
+                    .bind(local, options.backlog)
+                    .configureBlocking(false);
             }
         }
         catch (IOException ex)
         {
             LangUtil.rethrowUnchecked(ex);
-        }
-        finally
-        {
-            lock.unlock();
         }
 
         return channels;
@@ -90,23 +73,11 @@ public final class TcpServerBindingConfig
 
     public void unbind()
     {
-        try
+        assert channels != null;
+        for (SelectableChannel channel : channels)
         {
-            lock.lock();
-
-            if (binds.decrementAndGet() == 0L)
-            {
-                assert channels != null;
-                for (ServerSocketChannel channel : channels)
-                {
-                    quietClose(channel);
-                }
-                channels = null;
-            }
+            quietClose(channel);
         }
-        finally
-        {
-            lock.unlock();
-        }
+        channels = null;
     }
 }

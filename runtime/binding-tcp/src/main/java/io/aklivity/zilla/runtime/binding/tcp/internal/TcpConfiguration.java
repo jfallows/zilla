@@ -15,6 +15,9 @@
  */
 package io.aklivity.zilla.runtime.binding.tcp.internal;
 
+import static io.aklivity.zilla.runtime.engine.EngineConfiguration.ENGINE_WORKERS;
+import static io.aklivity.zilla.runtime.engine.EngineConfiguration.ENGINE_WORKER_CAPACITY;
+
 import io.aklivity.zilla.runtime.engine.Configuration;
 
 public class TcpConfiguration extends Configuration
@@ -28,7 +31,7 @@ public class TcpConfiguration extends Configuration
     {
         ConfigurationDef config = new ConfigurationDef("zilla.binding.tcp");
         TCP_WINDOW_THRESHOLD = config.property("window.threshold", 0);
-        TCP_MAX_CONNECTIONS = config.property("max.connections", Integer.MAX_VALUE);
+        TCP_MAX_CONNECTIONS = config.property("max.connections", TcpConfiguration::defaultMaxConnection);
         TCP_CONFIG = config;
     }
 
@@ -48,5 +51,11 @@ public class TcpConfiguration extends Configuration
     public int maxConnections()
     {
         return TCP_MAX_CONNECTIONS.getAsInt(this);
+    }
+
+    private static int defaultMaxConnection(
+        Configuration config)
+    {
+        return ENGINE_WORKERS.getAsInt(config) * ENGINE_WORKER_CAPACITY.getAsInt(config);
     }
 }
