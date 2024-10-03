@@ -14,37 +14,41 @@
 # under the License.
 #
 
-connect "zilla://streams/openapi0"
+accept "zilla://streams/openapi0"
         option zilla:window 8192
         option zilla:transmission "half-duplex"
-
-write zilla:begin.ext ${openapi:beginEx()
-                             .typeId(zilla:id("openapi"))
-                             .operationId("createPets")
-                             .extension(http:beginEx()
-                                  .typeId(zilla:id("http"))
-                                  .header(":method", "POST")
-                                  .header(":scheme", "http")
-                                  .header(":path", "/pets")
-                                  .header(":authority", "localhost:8080")
-                                  .header("content-type", "application/json")
-                                  .header("content-length", "41")
-                                  .build())
-                             .build()}
-connected
-
-write "{\"id\": 1, \"name\": \"rocky\", \"tag\": \"test\"}"
-write close
+accepted
 
 read zilla:begin.ext ${openapi:matchBeginEx()
                              .typeId(zilla:id("openapi"))
                              .operationId("createPets")
                              .extension(http:matchBeginEx()
+                                  .typeId(zilla:id("http"))
+                                  .header(":method", "POST")
+                                  .header(":scheme", "http")
+                                  .header(":path", "/pets")
+                                  .header(":authority", "localhost:80")
+                                  .header("content-type", "application/json")
+                                  .header("content-length", "41")
+                                  .build())
+                             .build()}
+
+connected
+
+read "{\"id\": 1, \"name\": \"rocky\", \"tag\": \"test\"}"
+read closed
+
+write zilla:begin.ext ${openapi:beginEx()
+                             .typeId(zilla:id("openapi"))
+                             .operationId("createPets")
+                             .extension(http:beginEx()
                               .typeId(zilla:id("http"))
                               .header(":status", "200")
                               .header("content-type", "application/json")
                               .header("content-length", "31")
                               .build())
                              .build()}
+write flush
 
-read "{\"code\": 0,\"message\": \"string\"}"
+write "{\"code\": 0,\"message\": \"string\"}"
+write flush
