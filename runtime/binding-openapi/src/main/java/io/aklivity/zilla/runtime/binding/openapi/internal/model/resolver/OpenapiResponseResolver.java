@@ -12,24 +12,24 @@
  * WARRANTIES OF ANY KIND, either express or implied.  See the License for the
  * specific language governing permissions and limitations under the License.
  */
-package io.aklivity.zilla.runtime.binding.asyncapi.internal.model.resolver;
+package io.aklivity.zilla.runtime.binding.openapi.internal.model.resolver;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-import io.aklivity.zilla.runtime.binding.asyncapi.internal.model.Asyncapi;
-import io.aklivity.zilla.runtime.binding.asyncapi.internal.model.AsyncapiSecurityScheme;
+import io.aklivity.zilla.runtime.binding.openapi.internal.model.Openapi;
+import io.aklivity.zilla.runtime.binding.openapi.internal.model.OpenapiResponse;
 
-public final class AsyncapiSecuritySchemeResolver extends AbstractAsyncapiResolver<AsyncapiSecurityScheme>
+public final class OpenapiResponseResolver extends AbstractOpenapiResolver<OpenapiResponse>
 {
-    public AsyncapiSecuritySchemeResolver(
-        Asyncapi model)
+    public OpenapiResponseResolver(
+        Openapi model)
     {
         super(
             Optional.ofNullable(model.components)
-                .map(c -> c.securitySchemes)
+                .map(c -> c.responses)
                 .orElseGet(Map::of),
-            Pattern.compile("#/components/securitySchemes/(.+)"));
+            Pattern.compile("#/components/responses/(.+)"));
     }
 }

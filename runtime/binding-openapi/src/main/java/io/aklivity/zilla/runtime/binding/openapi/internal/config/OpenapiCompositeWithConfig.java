@@ -12,9 +12,18 @@
  * WARRANTIES OF ANY KIND, either express or implied.  See the License for the
  * specific language governing permissions and limitations under the License.
  */
-package io.aklivity.zilla.runtime.binding.openapi.internal.model;
+package io.aklivity.zilla.runtime.binding.openapi.internal.config;
 
-public class OpenapiBearerAuth
+public class OpenapiCompositeWithConfig
 {
-    public String bearerFormat;
+    public final long apiId;
+    public final String operationId;
+
+    public OpenapiCompositeWithConfig(
+        long apiId,
+        String operationId)
+    {
+        this.apiId = apiId;
+        this.operationId = operationId;
+    }
 }

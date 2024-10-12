@@ -14,9 +14,14 @@
  */
 package io.aklivity.zilla.runtime.binding.openapi.internal.model;
 
-import java.util.Map;
+import java.util.List;
 
-public class OpenapiRequestBody extends AbstractOpenapiResolvable
+import jakarta.json.bind.annotation.JsonbProperty;
+
+public class OpenapiServerVariable extends AbstractOpenapiResolvable
 {
-    public Map<String, OpenapiMediaType> content;
+    @JsonbProperty("enum")
+    public List<String> values;
+    @JsonbProperty("default")
+    public String defaultValue;
 }

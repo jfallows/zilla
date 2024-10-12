@@ -18,7 +18,7 @@ import java.util.List;
 
 import jakarta.json.bind.annotation.JsonbProperty;
 
-public class AsyncapiVariable extends AbstractAsyncapiResolvable
+public class AsyncapiServerVariable extends AbstractAsyncapiResolvable
 {
     @JsonbProperty("default")
     public String defaultValue;
