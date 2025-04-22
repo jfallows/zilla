@@ -26,6 +26,7 @@ public class TlsConfiguration extends Configuration
     public static final IntPropertyDef TLS_HANDSHAKE_TIMEOUT;
     public static final BooleanPropertyDef TLS_IGNORE_EMPTY_VAULT_REFS;
     public static final LongPropertyDef TLS_AWAIT_SYNC_CLOSE_MILLIS;
+    public static final BooleanPropertyDef TLS_PROACTIVE_CLIENT_INITIAL_WINDOW;
     public static final BooleanPropertyDef TLS_PROACTIVE_CLIENT_REPLY_BEGIN;
     public static final BooleanPropertyDef TLS_CLIENT_HTTPS_IDENTIFICATION;
     public static final BooleanPropertyDef TLS_CLIENT_SERVER_NAME_INDICATION;
@@ -41,6 +42,7 @@ public class TlsConfiguration extends Configuration
         TLS_HANDSHAKE_TIMEOUT = config.property("handshake.timeout", 10);
         TLS_IGNORE_EMPTY_VAULT_REFS = config.property("ignore.empty.vault.refs", false);
         TLS_AWAIT_SYNC_CLOSE_MILLIS = config.property("await.sync.close.millis", 3000L);
+        TLS_PROACTIVE_CLIENT_INITIAL_WINDOW = config.property("proactive.client.initial.window", false);
         TLS_PROACTIVE_CLIENT_REPLY_BEGIN = config.property("proactive.client.reply.begin", false);
         TLS_CLIENT_HTTPS_IDENTIFICATION = config.property("client.https.identification", true);
         TLS_CLIENT_SERVER_NAME_INDICATION = config.property("client.server.name.indication", true);
@@ -73,6 +75,11 @@ public class TlsConfiguration extends Configuration
     public long awaitSyncCloseMillis()
     {
         return TLS_AWAIT_SYNC_CLOSE_MILLIS.get(this);
+    }
+
+    public boolean proactiveClientInitialWindow()
+    {
+        return TLS_PROACTIVE_CLIENT_INITIAL_WINDOW.get(this);
     }
 
     public boolean proactiveClientReplyBegin()

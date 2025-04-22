@@ -31,3 +31,4 @@ connected
 write flush
 
 read closed
+write abort

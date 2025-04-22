@@ -138,6 +138,7 @@ public final class TlsClientFactory implements TlsStreamFactory
     private final int decodeMax;
     private final int handshakeMax;
     private final long handshakeTimeoutMillis;
+    private final boolean proactiveInitialWindow;
     private final boolean proactiveReplyBegin;
 
     private final ByteBuffer inNetByteBuffer;
@@ -163,6 +164,7 @@ public final class TlsClientFactory implements TlsStreamFactory
         this.encodePool = context.bufferPool();
 
         this.config = config;
+        this.proactiveInitialWindow = config.proactiveClientInitialWindow();
         this.proactiveReplyBegin = config.proactiveClientReplyBegin();
         this.supplyVault = context::supplyVault;
         this.supplyInitialId = context::supplyInitialId;
@@ -1009,6 +1011,11 @@ public final class TlsClientFactory implements TlsStreamFactory
             state = TlsState.openInitial(state);
 
             client.doNetBegin(traceId, affinity, proxyEx);
+
+            if (proactiveInitialWindow)
+            {
+                doAppWindow(traceId, authorization);
+            }
         }
 
         private void onAppFlush(
@@ -1091,7 +1098,16 @@ public final class TlsClientFactory implements TlsStreamFactory
             state = TlsState.closeInitial(state);
             client.stream = nullIfClosed(state, client.stream);
 
-            client.doEncodeCloseOutbound(traceId, budgetId);
+            switch (client.tlsEngine.getHandshakeStatus())
+            {
+            case FINISHED:
+            case NOT_HANDSHAKING:
+                client.doEncodeCloseOutbound(traceId, budgetId);
+                break;
+            default:
+                client.cleanupNet(traceId);
+                break;
+            }
         }
 
         private void onAppAbort(
@@ -1230,8 +1246,12 @@ public final class TlsClientFactory implements TlsStreamFactory
         private void doAppAbort(
             long traceId)
         {
-            if (TlsState.replyOpening(state) &&
-                !TlsState.replyClosed(state))
+            if (!TlsState.replyOpening(state))
+            {
+                doAppBegin(traceId, 0L, null, null);
+            }
+
+            if (!TlsState.replyClosed(state))
             {
                 state = TlsState.closeReply(state);
                 client.stream = nullIfClosed(state, client.stream);

@@ -19,5 +19,7 @@ connect "zilla://streams/net0"
   option zilla:transmission "duplex"
 connected
 
-write close
-read closed
+write [0x16 0x03 0x03] 0s
+
+read abort
+write abort

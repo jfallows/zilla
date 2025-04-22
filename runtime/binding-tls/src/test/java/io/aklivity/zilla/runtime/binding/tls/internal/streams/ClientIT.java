@@ -262,12 +262,12 @@ public class ClientIT
         k3po.finish();
     }
 
-    @Ignore("TODO: throttle none implies immediately connected")
     @Test
     @Configuration("client.yaml")
     @Specification({
         "${app}/client.sent.write.close.before.handshake/client",
         "${net}/client.sent.write.close.before.handshake/server"})
+    @Configure(name = "zilla.binding.tls.proactive.client.initial.window", value = "true")
     public void shouldReceiveClientSentWriteCloseBeforeHandshake() throws Exception
     {
         k3po.finish();

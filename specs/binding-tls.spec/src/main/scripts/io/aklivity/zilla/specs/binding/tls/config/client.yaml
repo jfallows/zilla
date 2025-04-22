@@ -50,6 +50,7 @@ bindings:
         kind: client
         vault: client
         options:
+            version: TLSv1.2
             trust:
                 - serverca
         exit: net0
