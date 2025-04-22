@@ -30,5 +30,7 @@ connected
 
 write flush
 
+read notify SEND_CLOSE
+
 read closed
 write abort

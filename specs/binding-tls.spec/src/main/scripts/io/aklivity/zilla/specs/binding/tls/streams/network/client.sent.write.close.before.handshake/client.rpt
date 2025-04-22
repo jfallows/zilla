@@ -21,5 +21,7 @@ connected
 
 write [0x16 0x03 0x03] 0s
 
+write notify RECEIVED_CLIENT_HELLO
+
 read abort
 write abort

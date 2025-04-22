@@ -270,6 +270,9 @@ public class ClientIT
     @Configure(name = "zilla.binding.tls.proactive.client.initial.window", value = "true")
     public void shouldReceiveClientSentWriteCloseBeforeHandshake() throws Exception
     {
+        k3po.start();
+        k3po.awaitBarrier("RECEIVED_CLIENT_HELLO");
+        k3po.notifyBarrier("SEND_CLOSE");
         k3po.finish();
     }
 

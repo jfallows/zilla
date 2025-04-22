@@ -29,7 +29,7 @@ write zilla:begin.ext ${proxy:beginEx()
 
 connected
 
-write await RECEIVED_CLIENT_HELLO
+write await SEND_CLOSE
 
 write close
 read aborted
