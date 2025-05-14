@@ -15,7 +15,6 @@
 package io.aklivity.zilla.runtime.model.json.internal;
 
 import java.io.StringReader;
-import java.util.HashMap;
 import java.util.Map;
 
 import jakarta.json.spi.JsonProvider;
@@ -24,6 +23,7 @@ import jakarta.json.stream.JsonParserFactory;
 
 import org.agrona.DirectBuffer;
 import org.agrona.collections.Int2ObjectCache;
+import org.agrona.collections.Object2ObjectHashMap;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.io.DirectBufferInputStream;
 import org.leadpony.justify.api.JsonSchema;
@@ -76,7 +76,7 @@ public abstract class JsonModelHandler
         this.providers = new Int2ObjectCache<>(1, 1024, i -> {});
         this.in = new DirectBufferInputStream();
         this.event = new JsonModelEventContext(context);
-        this.extracted = new HashMap<>();
+        this.extracted = new Object2ObjectHashMap<>();
     }
 
     protected final boolean validate(

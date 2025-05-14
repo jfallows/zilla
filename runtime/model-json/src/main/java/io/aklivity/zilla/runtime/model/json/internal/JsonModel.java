@@ -18,7 +18,6 @@ import java.net.URL;
 
 import io.aklivity.zilla.runtime.engine.EngineContext;
 import io.aklivity.zilla.runtime.engine.model.Model;
-import io.aklivity.zilla.runtime.engine.model.ModelContext;
 
 public class JsonModel implements Model
 {
@@ -31,7 +30,7 @@ public class JsonModel implements Model
     }
 
     @Override
-    public ModelContext supply(
+    public JsonModelContext supply(
         EngineContext context)
     {
         return new JsonModelContext(context);

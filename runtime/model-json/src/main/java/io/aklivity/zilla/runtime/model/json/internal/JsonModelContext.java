@@ -25,7 +25,8 @@ public class JsonModelContext implements ModelContext
 {
     private final EngineContext context;
 
-    public JsonModelContext(EngineContext context)
+    public JsonModelContext(
+        EngineContext context)
     {
         this.context = context;
     }

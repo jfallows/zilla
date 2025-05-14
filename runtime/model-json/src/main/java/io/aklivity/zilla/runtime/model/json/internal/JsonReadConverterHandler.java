@@ -22,6 +22,7 @@ import java.util.regex.Pattern;
 import org.agrona.DirectBuffer;
 
 import io.aklivity.zilla.runtime.engine.EngineContext;
+import io.aklivity.zilla.runtime.engine.catalog.CatalogHandler;
 import io.aklivity.zilla.runtime.engine.model.ConverterHandler;
 import io.aklivity.zilla.runtime.engine.model.function.ValueConsumer;
 import io.aklivity.zilla.runtime.model.json.config.JsonModelConfig;
@@ -32,14 +33,15 @@ public class JsonReadConverterHandler extends JsonModelHandler implements Conver
     private static final String PATH = "^\\$\\.([A-Za-z_][A-Za-z0-9_]*)$";
     private static final Pattern PATH_PATTERN = Pattern.compile(PATH);
 
-    private final Matcher matcher;
+    private final Matcher matcher = PATH_PATTERN.matcher("");
+
+    private final CatalogHandler.Decoder decodePayload = this::decodePayload;
 
     public JsonReadConverterHandler(
         JsonModelConfig config,
         EngineContext context)
     {
         super(config, context);
-        this.matcher = PATH_PATTERN.matcher("");
     }
 
     @Override
@@ -70,7 +72,7 @@ public class JsonReadConverterHandler extends JsonModelHandler implements Conver
         int length,
         ValueConsumer next)
     {
-        return handler.decode(traceId, bindingId, data, index, length, next, this::decodePayload);
+        return handler.decode(traceId, bindingId, data, index, length, next, decodePayload);
     }
 
     @Override
