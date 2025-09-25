@@ -67,10 +67,10 @@ public final class HttpActiveRequestsMetricContext implements MetricContext
     public MessageConsumer supply(
         LongConsumer recorder)
     {
-        return new HttpActiveRequestsMetricHandler(recorder);
+        return new HttpActiveRequestsHandler(recorder);
     }
 
-    private final class HttpActiveRequestsMetricHandler implements MessageConsumer
+    private final class HttpActiveRequestsHandler implements MessageConsumer
     {
         private static final long INITIAL_VALUE = 0L;
         private static final long EXCHANGE_CLOSED = 0b11L;
@@ -78,7 +78,7 @@ public final class HttpActiveRequestsMetricContext implements MetricContext
         private final LongConsumer recorder;
         private final Long2LongHashMap exchanges;
 
-        private HttpActiveRequestsMetricHandler(
+        private HttpActiveRequestsHandler(
             LongConsumer recorder)
         {
             this.recorder = recorder;

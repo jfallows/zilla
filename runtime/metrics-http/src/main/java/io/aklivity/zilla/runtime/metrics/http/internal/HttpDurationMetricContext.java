@@ -67,10 +67,10 @@ public final class HttpDurationMetricContext implements MetricContext
     public MessageConsumer supply(
         LongConsumer recorder)
     {
-        return new HttpActiveRequestsMetricHandler(recorder);
+        return new HttpDurationHandler(recorder);
     }
 
-    private final class HttpActiveRequestsMetricHandler implements MessageConsumer
+    private final class HttpDurationHandler implements MessageConsumer
     {
         private static final long INITIAL_VALUE = 0L;
         private static final long EXCHANGE_CLOSED = 0b11L;
@@ -79,7 +79,7 @@ public final class HttpDurationMetricContext implements MetricContext
         private final Long2LongHashMap exchanges;
         private final Long2LongHashMap timestamps;
 
-        private HttpActiveRequestsMetricHandler(
+        private HttpDurationHandler(
             LongConsumer recorder)
         {
             this.recorder = recorder;

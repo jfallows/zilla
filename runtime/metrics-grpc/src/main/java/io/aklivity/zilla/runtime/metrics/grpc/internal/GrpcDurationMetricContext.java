@@ -67,10 +67,10 @@ public final class GrpcDurationMetricContext implements MetricContext
     public MessageConsumer supply(
         LongConsumer recorder)
     {
-        return new GrpcActiveRequestsMetricHandler(recorder);
+        return new GrpcActiveRequestsHandler(recorder);
     }
 
-    private final class GrpcActiveRequestsMetricHandler implements MessageConsumer
+    private final class GrpcActiveRequestsHandler implements MessageConsumer
     {
         private static final long INITIAL_VALUE = 0L;
         private static final long EXCHANGE_CLOSED = 0b11L;
@@ -79,7 +79,7 @@ public final class GrpcDurationMetricContext implements MetricContext
         private final Long2LongHashMap exchanges;
         private final Long2LongHashMap timestamps;
 
-        private GrpcActiveRequestsMetricHandler(
+        private GrpcActiveRequestsHandler(
             LongConsumer recorder)
         {
             this.recorder = recorder;
