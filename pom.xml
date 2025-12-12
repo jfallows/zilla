@@ -49,18 +49,18 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <maven.compiler.source>20</maven.compiler.source>
-    <maven.compiler.target>20</maven.compiler.target>
-    <maven.compiler.release>20</maven.compiler.release>
+    <maven.compiler.source>22</maven.compiler.source>
+    <maven.compiler.target>22</maven.compiler.target>
+    <maven.compiler.release>22</maven.compiler.release>
     <checkstyle.config.location>io/aklivity/zilla/conf/checkstyle/configuration.xml</checkstyle.config.location>
     <checkstyle.suppressions.location>io/aklivity/zilla/conf/checkstyle/suppressions.xml</checkstyle.suppressions.location>
     <antlr4.version>4.13.0</antlr4.version>
     <agrona.version>1.23.1</agrona.version>
     <slf4j.version>1.7.36</slf4j.version>
     <junit.version>5.10.2</junit.version>
-    <byteman.version>4.0.23</byteman.version>
+    <byteman.version>4.0.26</byteman.version>
     <jmock.version>2.6.0</jmock.version>
-    <mockito.version>5.14.1</mockito.version>
+    <mockito.version>5.21.0</mockito.version>
     <k3po.version>3.3.0</k3po.version>
     <jmh.version>1.37</jmh.version>
   </properties>
@@ -365,7 +365,7 @@
         <plugin>
           <groupId>org.jacoco</groupId>
           <artifactId>jacoco-maven-plugin</artifactId>
-          <version>0.8.12</version>
+          <version>0.8.14</version>
           <configuration>
             <propertyName>jacoco.java.option</propertyName>
           </configuration>
