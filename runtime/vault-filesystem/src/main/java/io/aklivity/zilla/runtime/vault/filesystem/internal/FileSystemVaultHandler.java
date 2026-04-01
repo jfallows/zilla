@@ -22,7 +22,9 @@ import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.KeyStore.Entry;
 import java.security.KeyStore.PrivateKeyEntry;
+import java.security.KeyStore.SecretKeyEntry;
 import java.security.KeyStore.TrustedCertificateEntry;
+import java.security.SecureRandom;
 import java.security.cert.CertPathValidator;
 import java.security.cert.Certificate;
 import java.security.cert.PKIXBuilderParameters;
@@ -37,13 +39,20 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
 import javax.net.ssl.CertPathTrustManagerParameters;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManagerFactory;
 import javax.security.auth.x500.X500Principal;
 
+import org.agrona.DirectBuffer;
+import org.agrona.ExpandableArrayBuffer;
 import org.agrona.LangUtil;
+import org.agrona.MutableDirectBuffer;
 
+import io.aklivity.zilla.runtime.engine.model.function.ValueConsumer;
 import io.aklivity.zilla.runtime.engine.security.RevocationStrategy;
 import io.aklivity.zilla.runtime.engine.vault.VaultHandler;
 import io.aklivity.zilla.runtime.vault.filesystem.config.FileSystemOptionsConfig;
@@ -53,11 +62,21 @@ public class FileSystemVaultHandler implements VaultHandler
 {
     private static final String STORE_TYPE_DEFAULT = "pkcs12";
     private static final String PKIX_ALGORITHM = "PKIX";
+    private static final String AES_GCM_CIPHER = "AES/GCM/NoPadding";
+    private static final int GCM_IV_LENGTH = 12;
+    private static final int GCM_TAG_LENGTH_BITS = 128;
 
     private final Function<List<String>, KeyManagerFactory> supplyKeys;
     private final Function<List<String>, KeyManagerFactory> supplySigners;
     private final BiFunction<List<String>, KeyStore, TrustManagerFactory> supplyTrust;
     private final RevocationStrategy revocation;
+    private final FileSystemStoreInfo encryptKeys;
+    private final SecureRandom random;
+    private final MutableDirectBuffer encryptBuffer;
+    private final byte[] iv;
+    private byte[] workBuffer;
+    private final Cipher encryptCipher;
+    private final Cipher decryptCipher;
 
     public FileSystemVaultHandler(
         FileSystemOptionsConfig options,
@@ -84,6 +103,37 @@ public class FileSystemVaultHandler implements VaultHandler
         this.revocation = options.revocation != null ? options.revocation : revocation;
         FileSystemStoreInfo trust = supplyStoreInfo(resolvePath, options.trust);
         supplyTrust = (aliases, cacerts) -> newTrustFactory(trust, aliases, cacerts);
+
+        this.encryptKeys = keys;
+        if (keys != null)
+        {
+            this.random = new SecureRandom();
+            this.encryptBuffer = new ExpandableArrayBuffer();
+            this.iv = new byte[GCM_IV_LENGTH];
+            this.workBuffer = new byte[256];
+            Cipher ec = null;
+            Cipher dc = null;
+            try
+            {
+                ec = Cipher.getInstance(AES_GCM_CIPHER);
+                dc = Cipher.getInstance(AES_GCM_CIPHER);
+            }
+            catch (Exception ex)
+            {
+                LangUtil.rethrowUnchecked(ex);
+            }
+            this.encryptCipher = ec;
+            this.decryptCipher = dc;
+        }
+        else
+        {
+            this.random = null;
+            this.encryptBuffer = null;
+            this.iv = null;
+            this.workBuffer = null;
+            this.encryptCipher = null;
+            this.decryptCipher = null;
+        }
     }
 
     @Override
@@ -106,6 +156,82 @@ public class FileSystemVaultHandler implements VaultHandler
         List<String> aliases)
     {
         return supplySigners.apply(aliases);
+    }
+
+    @Override
+    public int encrypt(
+        String keyRef,
+        DirectBuffer plaintext,
+        int index,
+        int length,
+        ValueConsumer output)
+    {
+        int result = -1;
+
+        SecretKey secretKey = encryptKeys != null ? encryptKeys.secretKey(keyRef) : null;
+        if (secretKey != null)
+        {
+            try
+            {
+                random.nextBytes(iv);
+                GCMParameterSpec spec = new GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv);
+                encryptCipher.init(Cipher.ENCRYPT_MODE, secretKey, spec);
+                if (workBuffer.length < length)
+                {
+                    workBuffer = new byte[length];
+                }
+                plaintext.getBytes(index, workBuffer, 0, length);
+                final int outputLength = GCM_IV_LENGTH + encryptCipher.getOutputSize(length);
+                encryptBuffer.checkLimit(outputLength);
+                System.arraycopy(iv, 0, encryptBuffer.byteArray(), 0, GCM_IV_LENGTH);
+                result = GCM_IV_LENGTH +
+                    encryptCipher.doFinal(workBuffer, 0, length, encryptBuffer.byteArray(), GCM_IV_LENGTH);
+                output.accept(encryptBuffer, 0, result);
+            }
+            catch (Exception ex)
+            {
+            }
+        }
+
+        return result;
+    }
+
+    @Override
+    public int decrypt(
+        String keyRef,
+        DirectBuffer ciphertext,
+        int index,
+        int length,
+        ValueConsumer output)
+    {
+        int result = -1;
+
+        SecretKey secretKey = encryptKeys != null ? encryptKeys.secretKey(keyRef) : null;
+        if (secretKey != null && length > GCM_IV_LENGTH)
+        {
+            try
+            {
+                ciphertext.getBytes(index, iv, 0, GCM_IV_LENGTH);
+                GCMParameterSpec spec = new GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv);
+                decryptCipher.init(Cipher.DECRYPT_MODE, secretKey, spec);
+                final int ciphertextBodyLength = length - GCM_IV_LENGTH;
+                if (workBuffer.length < ciphertextBodyLength)
+                {
+                    workBuffer = new byte[ciphertextBodyLength];
+                }
+                ciphertext.getBytes(index + GCM_IV_LENGTH, workBuffer, 0, ciphertextBodyLength);
+                final int outputLength = decryptCipher.getOutputSize(ciphertextBodyLength);
+                encryptBuffer.checkLimit(outputLength);
+                result = decryptCipher.doFinal(workBuffer, 0, ciphertextBodyLength,
+                    encryptBuffer.byteArray(), 0);
+                output.accept(encryptBuffer, 0, result);
+            }
+            catch (Exception ex)
+            {
+            }
+        }
+
+        return result;
     }
 
     private static FileSystemStoreInfo supplyStoreInfo(
@@ -284,6 +410,13 @@ public class FileSystemVaultHandler implements VaultHandler
             String alias)
         {
             return entry(store, protection, alias, PrivateKeyEntry.class);
+        }
+
+        private SecretKey secretKey(
+            String alias)
+        {
+            SecretKeyEntry entry = entry(store, protection, alias, SecretKeyEntry.class);
+            return entry != null ? entry.getSecretKey() : null;
         }
 
         private TrustedCertificateEntry certificate(

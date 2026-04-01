@@ -108,6 +108,14 @@
                             }
                         },
                         "maxProperties": 1
+                    },
+                    "keyRef":
+                    {
+                        "type": "string"
+                    },
+                    "mode":
+                    {
+                        "type": "string"
                     }
                 },
                 "additionalProperties": false
@@ -223,6 +231,14 @@
                             }
                         },
                         "maxProperties": 1
+                    },
+                    "keyRef":
+                    {
+                        "type": "string"
+                    },
+                    "mode":
+                    {
+                        "type": "string"
                     }
                 },
                 "additionalProperties": false

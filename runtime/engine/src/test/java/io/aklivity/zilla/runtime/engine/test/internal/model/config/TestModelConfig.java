@@ -25,15 +25,23 @@ public class TestModelConfig extends ModelConfig
 {
     public final int length;
     public final boolean read;
+    public final String keyRef;
+    public final String mode;
+
+    public transient long vaultId;
 
     public TestModelConfig(
         int length,
         List<CatalogedConfig> cataloged,
-        boolean read)
+        boolean read,
+        String keyRef,
+        String mode)
     {
         super("test", cataloged);
         this.length = length;
         this.read = read;
+        this.keyRef = keyRef;
+        this.mode = mode;
     }
 
     public static <T> TestModelConfigBuilder<T> builder(

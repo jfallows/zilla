@@ -40,7 +40,6 @@ import io.aklivity.zilla.runtime.engine.config.SchemaConfig;
 import io.aklivity.zilla.runtime.engine.guard.GuardHandler;
 import io.aklivity.zilla.runtime.engine.metrics.Metric;
 import io.aklivity.zilla.runtime.engine.model.ConverterHandler;
-import io.aklivity.zilla.runtime.engine.model.function.ValueConsumer;
 import io.aklivity.zilla.runtime.engine.namespace.NamespacedId;
 import io.aklivity.zilla.runtime.engine.security.Trusted;
 import io.aklivity.zilla.runtime.engine.test.internal.binding.config.TestBindingConfig;
@@ -59,6 +58,7 @@ import io.aklivity.zilla.runtime.engine.test.internal.k3po.ext.types.stream.EndF
 import io.aklivity.zilla.runtime.engine.test.internal.k3po.ext.types.stream.FlushFW;
 import io.aklivity.zilla.runtime.engine.test.internal.k3po.ext.types.stream.ResetFW;
 import io.aklivity.zilla.runtime.engine.test.internal.k3po.ext.types.stream.WindowFW;
+import io.aklivity.zilla.runtime.engine.test.internal.model.config.TestModelConfig;
 import io.aklivity.zilla.runtime.engine.vault.VaultHandler;
 
 final class TestBindingFactory implements BindingHandler
@@ -126,6 +126,17 @@ final class TestBindingFactory implements BindingHandler
         {
             int namespaceId = NamespacedId.namespaceId(binding.id);
 
+            if (binding.vault != null)
+            {
+                this.vault = context.supplyVault(binding.vaultId);
+                this.vaultAssertion = options.vaultAssertion;
+
+                if (options.value instanceof TestModelConfig)
+                {
+                    ((TestModelConfig) options.value).vaultId = binding.vaultId;
+                }
+            }
+
             if (options.value != null)
             {
                 this.valueType = context.supplyWriteConverter(options.value);
@@ -156,12 +167,6 @@ final class TestBindingFactory implements BindingHandler
             }
 
             this.events = options.events;
-
-            if (binding.vault != null)
-            {
-                this.vault = context.supplyVault(binding.vaultId);
-                this.vaultAssertion = options.vaultAssertion;
-            }
 
             if (options.metrics != null && !options.metrics.isEmpty())
             {
@@ -430,11 +435,32 @@ final class TestBindingFactory implements BindingHandler
 
             initialSeq = sequence + reserved;
 
-            if (valueType != null &&
-                valueType.convert(traceId, routedId, payload.buffer(), payload.offset(), payload.sizeof(),
-                        ValueConsumer.NOP) < 0)
+            if (valueType != null)
             {
-                target.doInitialAbort(traceId);
+                DirectBuffer[] convertedBuf = { null };
+                int[] convertedOff = { 0 };
+                int[] convertedLen = { 0 };
+
+                int result = valueType.convert(traceId, routedId, payload.buffer(), payload.offset(), payload.sizeof(),
+                    (buf, off, len) ->
+                    {
+                        convertedBuf[0] = buf;
+                        convertedOff[0] = off;
+                        convertedLen[0] = len;
+                    });
+
+                if (result < 0)
+                {
+                    target.doInitialAbort(traceId);
+                }
+                else if (convertedBuf[0] != null)
+                {
+                    target.doInitialData(traceId, flags, convertedLen[0], convertedBuf[0], convertedOff[0], convertedLen[0]);
+                }
+                else
+                {
+                    target.doInitialData(traceId, flags, reserved, payload);
+                }
             }
             else
             {
@@ -737,6 +763,20 @@ final class TestBindingFactory implements BindingHandler
                 initialSeq += reserved;
             }
 
+            private void doInitialData(
+                long traceId,
+                int flags,
+                int reserved,
+                DirectBuffer buffer,
+                int offset,
+                int length)
+            {
+                doData(target, originId, routedId, initialId, initialSeq, initialAck, initialMax, initialBud,
+                        traceId, flags, reserved, buffer, offset, length);
+
+                initialSeq += reserved;
+            }
+
             private void doInitialEnd(
                 long traceId)
             {
@@ -874,6 +914,41 @@ final class TestBindingFactory implements BindingHandler
                 .budgetId(budgetId)
                 .reserved(reserved)
                 .payload(payload)
+                .build();
+
+        stream.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
+    }
+
+    private void doData(
+        MessageConsumer stream,
+        long originId,
+        long routedId,
+        long streamId,
+        long sequence,
+        long acknowledge,
+        int maximum,
+        long budgetId,
+        long traceId,
+        int flags,
+        int reserved,
+        DirectBuffer buffer,
+        int offset,
+        int length)
+    {
+        MutableDirectBuffer writeBuffer = context.writeBuffer();
+
+        DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .originId(originId)
+                .routedId(routedId)
+                .streamId(streamId)
+                .sequence(sequence)
+                .acknowledge(acknowledge)
+                .maximum(maximum)
+                .traceId(traceId)
+                .flags(flags)
+                .budgetId(budgetId)
+                .reserved(reserved)
+                .payload(buffer, offset, length)
                 .build();
 
         stream.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());

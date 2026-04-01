@@ -31,11 +31,15 @@ import io.aklivity.zilla.runtime.engine.internal.types.String16FW;
 import io.aklivity.zilla.runtime.engine.model.ConverterHandler;
 import io.aklivity.zilla.runtime.engine.model.function.ValueConsumer;
 import io.aklivity.zilla.runtime.engine.test.internal.model.config.TestModelConfig;
+import io.aklivity.zilla.runtime.engine.vault.VaultHandler;
 
 public class TestConverterHandler implements ConverterHandler
 {
     private static final String PATH = "^\\$\\.([A-Za-z_][A-Za-z0-9_]*)$";
     private static final Pattern PATH_PATTERN = Pattern.compile(PATH);
+
+    private static final String MODE_ENCRYPT = "encrypt";
+    private static final String MODE_DECRYPT = "decrypt";
 
     private final int length;
     private final int schemaId;
@@ -44,13 +48,27 @@ public class TestConverterHandler implements ConverterHandler
     private final SchemaConfig schema;
     private final Map<String, OctetsFW> extracted;
     private final Matcher matcher;
+    private final VaultHandler vault;
+    private final String keyRef;
+    private final String mode;
 
     public TestConverterHandler(
         TestModelConfig config,
         LongFunction<CatalogHandler> supplyCatalog)
     {
+        this(config, supplyCatalog, null);
+    }
+
+    public TestConverterHandler(
+        TestModelConfig config,
+        LongFunction<CatalogHandler> supplyCatalog,
+        VaultHandler vault)
+    {
         this.length = config.length;
         this.read = config.read;
+        this.keyRef = config.keyRef;
+        this.mode = config.mode;
+        this.vault = vault;
         CatalogedConfig cataloged = config.cataloged != null && !config.cataloged.isEmpty()
             ? config.cataloged.get(0)
             : null;
@@ -77,7 +95,7 @@ public class TestConverterHandler implements ConverterHandler
         int index,
         int length)
     {
-        return handler.encodePadding(length);
+        return handler != null ? handler.encodePadding(length) : 0;
     }
 
     @Override
@@ -89,12 +107,30 @@ public class TestConverterHandler implements ConverterHandler
         int length,
         ValueConsumer next)
     {
-        boolean valid = length == this.length;
-        if (valid)
+        int result = -1;
+
+        if (vault != null && keyRef != null && mode != null)
         {
-            next.accept(data, index, length);
+            if (MODE_ENCRYPT.equals(mode))
+            {
+                result = vault.encrypt(keyRef, data, index, length, next);
+            }
+            else if (MODE_DECRYPT.equals(mode))
+            {
+                result = vault.decrypt(keyRef, data, index, length, next);
+            }
         }
-        return valid ? length : -1;
+        else
+        {
+            boolean valid = length == this.length;
+            if (valid)
+            {
+                next.accept(data, index, length);
+            }
+            result = valid ? length : -1;
+        }
+
+        return result;
     }
 
     @Override

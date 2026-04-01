@@ -24,29 +24,36 @@ import io.aklivity.zilla.runtime.engine.model.ConverterHandler;
 import io.aklivity.zilla.runtime.engine.model.ModelContext;
 import io.aklivity.zilla.runtime.engine.model.ValidatorHandler;
 import io.aklivity.zilla.runtime.engine.test.internal.model.config.TestModelConfig;
+import io.aklivity.zilla.runtime.engine.vault.VaultHandler;
 
 public class TestModelContext implements ModelContext
 {
     private final LongFunction<CatalogHandler> supplyCatalog;
+    private final LongFunction<VaultHandler> supplyVault;
 
     public TestModelContext(
         EngineContext context)
     {
         this.supplyCatalog = context::supplyCatalog;
+        this.supplyVault = context::supplyVault;
     }
 
     @Override
     public ConverterHandler supplyReadConverterHandler(
         ModelConfig config)
     {
-        return new TestConverterHandler(TestModelConfig.class.cast(config), supplyCatalog);
+        TestModelConfig testConfig = TestModelConfig.class.cast(config);
+        VaultHandler vault = testConfig.vaultId != 0 ? supplyVault.apply(testConfig.vaultId) : null;
+        return new TestConverterHandler(testConfig, supplyCatalog, vault);
     }
 
     @Override
     public ConverterHandler supplyWriteConverterHandler(
         ModelConfig config)
     {
-        return new TestConverterHandler(TestModelConfig.class.cast(config), supplyCatalog);
+        TestModelConfig testConfig = TestModelConfig.class.cast(config);
+        VaultHandler vault = testConfig.vaultId != 0 ? supplyVault.apply(testConfig.vaultId) : null;
+        return new TestConverterHandler(testConfig, supplyCatalog, vault);
     }
 
     @Override

@@ -21,6 +21,10 @@ import java.util.List;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManagerFactory;
 
+import org.agrona.DirectBuffer;
+
+import io.aklivity.zilla.runtime.engine.model.function.ValueConsumer;
+
 /**
  * Provides access to TLS cryptographic material from an attached vault.
  * <p>
@@ -78,4 +82,55 @@ public interface VaultHandler
     TrustManagerFactory initTrust(
         List<String> certRefs,
         KeyStore cacerts);
+
+    /**
+     * Encrypts plaintext at {@code plaintext[index..index+length)} under the named key.
+     * <p>
+     * On success, calls {@code output} with the result: IV (12 bytes) followed by
+     * ciphertext and GCM authentication tag (16 bytes).
+     * </p>
+     *
+     * @param keyRef    vault entry name identifying the encryption key
+     * @param plaintext the source buffer containing plaintext
+     * @param index     the offset of the plaintext in the buffer
+     * @param length    the length of the plaintext
+     * @param output    the consumer to receive the encrypted output
+     * @return total output length (IV + ciphertext + tag), or {@code -1} if the key
+     *         is not found or encryption fails
+     */
+    default int encrypt(
+        String keyRef,
+        DirectBuffer plaintext,
+        int index,
+        int length,
+        ValueConsumer output)
+    {
+        return -1;
+    }
+
+    /**
+     * Decrypts ciphertext at {@code ciphertext[index..index+length)} under the named key.
+     * <p>
+     * The first 12 bytes of the slice are treated as the IV; the remainder is the
+     * ciphertext and GCM authentication tag. On success, calls {@code output} with
+     * the recovered plaintext.
+     * </p>
+     *
+     * @param keyRef     vault entry name identifying the encryption key
+     * @param ciphertext the source buffer containing IV + ciphertext + tag
+     * @param index      the offset of the data in the buffer
+     * @param length     the total length (IV + ciphertext + tag)
+     * @param output     the consumer to receive the decrypted plaintext
+     * @return plaintext length, or {@code -1} if the key is not found or
+     *         authentication/decryption fails
+     */
+    default int decrypt(
+        String keyRef,
+        DirectBuffer ciphertext,
+        int index,
+        int length,
+        ValueConsumer output)
+    {
+        return -1;
+    }
 }

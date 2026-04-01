@@ -37,6 +37,8 @@ public class TestModelConfigAdapter implements ModelConfigAdapterSpi, JsonbAdapt
     private static final String CAPABILITY = "capability";
     private static final String READ = "read";
     private static final String CATALOG_NAME = "catalog";
+    private static final String KEY_REF_NAME = "keyRef";
+    private static final String MODE_NAME = "mode";
 
     private final SchemaConfigAdapter schema = new SchemaConfigAdapter();
 
@@ -67,6 +69,14 @@ public class TestModelConfigAdapter implements ModelConfigAdapterSpi, JsonbAdapt
             ? object.getString(CAPABILITY).equals(READ)
             : false;
 
+        String keyRef = object.containsKey(KEY_REF_NAME)
+            ? object.getString(KEY_REF_NAME)
+            : null;
+
+        String mode = object.containsKey(MODE_NAME)
+            ? object.getString(MODE_NAME)
+            : null;
+
         List<CatalogedConfig> catalogs = new LinkedList<>();
         if (object.containsKey(CATALOG_NAME))
         {
@@ -85,6 +95,6 @@ public class TestModelConfigAdapter implements ModelConfigAdapterSpi, JsonbAdapt
             }
         }
 
-        return new TestModelConfig(length, catalogs, read);
+        return new TestModelConfig(length, catalogs, read, keyRef, mode);
     }
 }
