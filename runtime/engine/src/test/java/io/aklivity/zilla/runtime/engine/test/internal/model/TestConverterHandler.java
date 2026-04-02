@@ -113,11 +113,11 @@ public class TestConverterHandler implements ConverterHandler
         {
             if (MODE_ENCRYPT.equals(mode))
             {
-                result = vault.encrypt(keyRef, data, index, length, next);
+                result = vault.encrypt(keyRef, data, index, length, null, 0, 0, next);
             }
             else if (MODE_DECRYPT.equals(mode))
             {
-                result = vault.decrypt(keyRef, data, index, length, next);
+                result = vault.decrypt(keyRef, data, index, length, null, 0, 0, next);
             }
         }
         else

@@ -89,12 +89,22 @@ public interface VaultHandler
      * On success, calls {@code output} with the result: IV (12 bytes) followed by
      * ciphertext and GCM authentication tag (16 bytes).
      * </p>
+     * <p>
+     * If {@code aad} is non-null, the slice {@code aad[aadIndex..aadIndex+aadLength)} is fed
+     * into the GCM authentication computation as additional authenticated data (AAD).  The AAD
+     * is not included in the output but must be supplied identically on the corresponding
+     * {@link #decrypt} call, or decryption will fail.  Callers can use this to bind a chunk to
+     * its position in a sequence, preventing undetected reorder or truncation of fragments.
+     * </p>
      *
-     * @param keyRef    vault entry name identifying the encryption key
-     * @param plaintext the source buffer containing plaintext
-     * @param index     the offset of the plaintext in the buffer
-     * @param length    the length of the plaintext
-     * @param output    the consumer to receive the encrypted output
+     * @param keyRef      vault entry name identifying the encryption key
+     * @param plaintext   the source buffer containing plaintext
+     * @param index       the offset of the plaintext in the buffer
+     * @param length      the length of the plaintext
+     * @param aad         buffer containing additional authenticated data, or {@code null} for none
+     * @param aadIndex    the offset of the AAD in the buffer
+     * @param aadLength   the length of the AAD
+     * @param output      the consumer to receive the encrypted output
      * @return total output length (IV + ciphertext + tag), or {@code -1} if the key
      *         is not found or encryption fails
      */
@@ -103,6 +113,9 @@ public interface VaultHandler
         DirectBuffer plaintext,
         int index,
         int length,
+        DirectBuffer aad,
+        int aadIndex,
+        int aadLength,
         ValueConsumer output)
     {
         return -1;
@@ -115,12 +128,21 @@ public interface VaultHandler
      * ciphertext and GCM authentication tag. On success, calls {@code output} with
      * the recovered plaintext.
      * </p>
+     * <p>
+     * If {@code aad} is non-null, the slice {@code aad[aadIndex..aadIndex+aadLength)} is fed
+     * into the GCM authentication computation as additional authenticated data (AAD) before
+     * decryption.  It must match exactly what was passed to the corresponding {@link #encrypt}
+     * call, or authentication will fail and {@code -1} is returned.
+     * </p>
      *
-     * @param keyRef     vault entry name identifying the encryption key
-     * @param ciphertext the source buffer containing IV + ciphertext + tag
-     * @param index      the offset of the data in the buffer
-     * @param length     the total length (IV + ciphertext + tag)
-     * @param output     the consumer to receive the decrypted plaintext
+     * @param keyRef      vault entry name identifying the encryption key
+     * @param ciphertext  the source buffer containing IV + ciphertext + tag
+     * @param index       the offset of the data in the buffer
+     * @param length      the total length (IV + ciphertext + tag)
+     * @param aad         buffer containing additional authenticated data, or {@code null} for none
+     * @param aadIndex    the offset of the AAD in the buffer
+     * @param aadLength   the length of the AAD
+     * @param output      the consumer to receive the decrypted plaintext
      * @return plaintext length, or {@code -1} if the key is not found or
      *         authentication/decryption fails
      */
@@ -129,6 +151,9 @@ public interface VaultHandler
         DirectBuffer ciphertext,
         int index,
         int length,
+        DirectBuffer aad,
+        int aadIndex,
+        int aadLength,
         ValueConsumer output)
     {
         return -1;
